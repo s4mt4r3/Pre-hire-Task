@@ -41,8 +41,10 @@ def main():
             errors.append(f"cell {i} contains something that looks like an API key or token")
 
     code_cells = [c for c in cells if c.cell_type == "code"]
-    if not code_cells or "launch(share=True" not in code_cells[-1].source:
-        errors.append("the final code cell does not launch the Gradio app with share=True")
+    # The last code cell may be a cell marked "TEMPORARY:" (results collection); the one before it must launch.
+    permanent = [c for c in code_cells if not c.source.lstrip().startswith("# TEMPORARY:")]
+    if not permanent or "launch(share=True" not in permanent[-1].source:
+        errors.append("the final non-temporary code cell does not launch the Gradio app with share=True")
 
     src_lines = SRC.read_text(encoding="utf-8").splitlines()
     for label, pattern in [("UNVERIFIED", "UNVERIFIED"), ("TODO(spec)", "TODO(spec)"), ("[FILL]", "[FILL")]:

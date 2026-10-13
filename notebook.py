@@ -63,12 +63,12 @@
 #
 # 1. In Colab: **Runtime → Change runtime type → T4 GPU → Save**.
 # 2. **Runtime → Run all**.
-# 3. Wait for the last code cell (section 19) to print a Gradio link
+# 3. Wait for the launch cell (section 19) to print a Gradio link
 #    (`https://….gradio.live`). Open it, or use the interface shown inline
 #    below that cell.
 #
-# The first run downloads about 25 GB of model weights, which takes several
-# minutes. No edits are needed (see **Manual steps** below). Without a GPU,
+# The first run downloads about 25 GB of model weights. In the author's T4
+# run, loading the Writer alone took about 12.5 minutes (753.8 s). No edits are needed (see **Manual steps** below). Without a GPU,
 # the notebook still runs end to end with fake model outputs
 # (`USE_MOCK_LLM`), so the pipeline and UI can be tested on CPU.
 #
@@ -92,7 +92,7 @@
 # 16. Evaluation (`RUN_EVAL`), Results & Analysis, Known Limitations
 # 17. Gradio UI: rendering helpers
 # 18. Gradio UI: the app
-# 19. Launch the app (the final code cell)
+# 19. Launch the app
 # 20. References (at the end, as the assignment asks)
 # 21. AI Assistance Declaration
 
@@ -111,8 +111,8 @@
 # **Optional settings** in the Configuration cell (section 2). None are
 # needed for a normal run:
 # - `RUN_EVAL = False` skips the 10-mood evaluation. With real models it
-#   runs about 20 Writer passes, which can take tens of minutes on a T4
-#   (**UNVERIFIED:** exact time). The UI launches only after it, in the last
+#   runs about 20 Writer passes, which took about 11 minutes on a T4 (660 s
+#   in the author's run). The UI launches only after it, in the last
 #   cell, so set this to `False` if you just want to try the app quickly.
 #   `EVAL_STORIES_PER_MOOD` changes its size.
 # - `LOAD_STRATEGY = "sequential"` forces one model in GPU memory at a time.
@@ -123,6 +123,16 @@
 # - If you swap in a **gated** model, set `HF_TOKEN_REQUIRED = True` and add
 #   an `HF_TOKEN` secret in Colab (key icon in the left sidebar). The default
 #   models don't need this.
+# - **Optional: a Hugging Face token to speed up downloads.** During the model
+#   download Colab may print "You are sending unauthenticated requests to the
+#   HF Hub". It is harmless: all three models are ungated, so no token is
+#   needed. A free token gives higher rate limits and, per that message,
+#   faster downloads. To use one, create a read-only token at
+#   https://huggingface.co/settings/tokens, add it as an `HF_TOKEN` secret
+#   (key icon in the left sidebar, with notebook access turned on), and run
+#   all again. Never paste the token into a cell. **UNVERIFIED:** how much
+#   faster it is, and that `huggingface_hub` picks up the Colab secret on its
+#   own when `HF_TOKEN_REQUIRED` is `False`.
 #
 # **If something goes wrong:**
 # - If Colab asks to restart the runtime after the install cell (not expected
@@ -187,7 +197,7 @@
 #   CUDA GPU, in which case fake model outputs stand in for the LLMs. Setting
 #   the environment variable `USE_MOCK_LLM=1` or `0` overrides it.
 # - **`RUN_EVAL`**: runs the 10-mood evaluation (section 16) during "Run
-#   all". With real models this can take tens of minutes, and the UI only
+#   all". With real models this took about 11 minutes on a T4, and the UI only
 #   launches after it; set it to `False` to skip.
 # - **Hugging Face token**: only read (from Colab Secrets) if
 #   `HF_TOKEN_REQUIRED` is set to `True` after swapping in a gated model.
@@ -202,12 +212,12 @@ MODEL_IDS = {
     "writer": "Qwen/Qwen2.5-7B-Instruct",  # Apache-2.0, 7.6B params
 }
 # T4 has 15 GB of VRAM; 4-bit on the two bigger models is what lets all three stay resident together.
-# UNVERIFIED: VRAM estimates (~3.1 GB fp16 / ~2.4 GB 4-bit / ~5.5 GB 4-bit); measure in Colab.
+# Measured on a T4 (2026-10-12): all three loaded together took 10.18 GB of 14.6 GB (peak 10.19 GB).
 QUANTIZE_4BIT = {"mood": False, "classifier": True, "writer": True}
 LOAD_STRATEGY = "resident"
 # T4 (compute capability 7.5) has no bf16 support, so the bf16 checkpoints are run in fp16.
 # Checked (CPU, fp16 forward pass): peak activations stay far below fp16's 65504 limit, with no inf/NaN —
-# Qwen2.5-1.5B ~6.6k, Phi-3.5-mini ~3.9k. UNVERIFIED: the same for Qwen2.5-7B (too large to test locally).
+# Qwen2.5-1.5B ~6.6k, Phi-3.5-mini ~3.9k. The Qwen2.5-7B was too large to test locally; on the T4 it produced coherent text in fp16 across the whole evaluation.
 TORCH_DTYPE = "float16"
 
 HF_TOKEN_REQUIRED = False
@@ -237,11 +247,11 @@ MAX_SUMMARY_RETRIES = 3
 # Each feed returned valid RSS, and its articles extracted cleanly, from a local machine on 2026-10-12.
 # The feed health check in the Retrieval section reports which ones respond at run time.
 RSS_SOURCES = {
-    "Good News Network": "https://www.goodnewsnetwork.org/feed/",  # UNVERIFIED: reachable from Colab IPs
-    "Positive News": "https://www.positive.news/feed/",  # UNVERIFIED: reachable from Colab IPs
-    "Reasons to be Cheerful": "https://reasonstobecheerful.world/feed/",  # UNVERIFIED: reachable from Colab IPs
-    "The Optimist Daily": "https://www.optimistdaily.com/feed/",  # UNVERIFIED: reachable from Colab IPs
-    "Sunny Skyz": "https://www.sunnyskyz.com/rss_tebow.php",  # UNVERIFIED: reachable from Colab IPs
+    "Good News Network": "https://www.goodnewsnetwork.org/feed/",  # reachable from Colab (2026-10-12 T4 run)
+    "Positive News": "https://www.positive.news/feed/",  # reachable from Colab (2026-10-12 T4 run)
+    "Reasons to be Cheerful": "https://reasonstobecheerful.world/feed/",  # reachable from Colab (2026-10-12 T4 run)
+    "The Optimist Daily": "https://www.optimistdaily.com/feed/",  # reachable from Colab (2026-10-12 T4 run)
+    "Sunny Skyz": "https://www.sunnyskyz.com/rss_tebow.php",  # reachable from Colab (2026-10-12 T4 run)
 }
 PREFILTER_K = 8  # articles handed to the Classifier
 MIN_USABLE_STORIES = 5  # below this many live articles, the bundled fallback stories are added
@@ -268,7 +278,7 @@ COPY_MAX_COMMON_NGRAM = 12  # a run of this many identical words shared with the
 COPY_MAX_5GRAM_RATIO = 0.30  # or: more than 30% of the paraphrase's 5-word sequences appear in the source
 FACT_MAX_UNSUPPORTED_NAMES = 2  # fact check warns on any number missing from the source, or on more names than this
 
-RUN_EVAL = True  # set False to skip the evaluation (can take tens of minutes on a T4; the UI launches after it)
+RUN_EVAL = True  # set False to skip the evaluation (about 11 minutes on a T4; the UI launches after it)
 EVAL_STORIES_PER_MOOD = 2  # stories per mood run through the Writer + Validator; all 5 would multiply Writer time
 
 try:
@@ -364,8 +374,9 @@ else:
 #   that fit on a T4. 4-bit quantization brings it from ~15 GB to ~5.5 GB.
 #
 # All three are ungated on Hugging Face (checked 2026-10-12), so no token is
-# needed. The VRAM figures are estimates from parameter count. The smoke test
-# below prints the actual peak.
+# needed. The VRAM figures are estimates from parameter count. On a T4, all
+# three together took 10.18 GB of 14.6 GB; the smoke test below prints the
+# actual peak.
 #
 # ### How the ModelManager works
 #
@@ -456,7 +467,7 @@ class ModelManager:
         model_id = self.model_ids[key]
         quant = None
         # bitsandbytes 4-bit needs CUDA; on a CPU-only debug run the model loads unquantized.
-        # UNVERIFIED: 4-bit load with bitsandbytes 0.50.2 + transformers 5.17.0 on a T4 (signature checked, not run).
+        # 4-bit loading with bitsandbytes 0.50.2 + transformers 5.17.0 worked on a T4 (2026-10-12).
         if self.quantize_4bit.get(key) and HAS_CUDA:
             quant = BitsAndBytesConfig(
                 load_in_4bit=True,
@@ -3478,39 +3489,42 @@ else:
 # *Fill this in from the evaluation output above after a run on a T4. Each
 # `[FILL]` is a number or a short observation. Delete this note when done.*
 #
-# **Setup.** Run on `[FILL: GPU, e.g. Tesla T4]` with `[FILL: real models / mock]`, `[FILL: date]`.
-# 10 moods, top `[FILL: 2]` stories written per mood. Total evaluation time: `[FILL] s`.
+# **Setup.** Run on a Tesla T4 (14.6 GB VRAM) with the real models (not mock), on 2026-10-12.
+# 10 moods, top 2 stories written per mood. Total evaluation time: 660 s.
 #
 # **Summary-length compliance.**
-# - `[FILL]%` of summaries were within 70–90 words after validation.
-# - Of those, `[FILL]%` passed on the first try, `[FILL]%` after Validator
-#   retries, and `[FILL]%` needed a programmatic trim or extend.
-# - Average retries per story: `[FILL]`.
+# - 100% of summaries (18 of 18) were within 70–90 words after validation.
+# - Of those, 44.4% passed on the first try, 44.4% after Validator
+#   retries, and 11.1% needed a programmatic trim or extend.
+# - Average retries per story: 0.89.
 # - *Observation:* `[FILL: e.g. does the 7B tend to run long or short?]`
 #
 # **Retrieval.**
-# - URL success rate: `[FILL]%`.
-# - The fallback stories were needed for `[FILL]`/10 moods.
-# - Feeds that failed: `[FILL: from the feed health check]`.
+# - URL success rate: 100% (all 16 shortlisted URLs resolved for every mood).
+# - The fallback stories were needed for 0/10 moods.
+# - Feeds that failed: none; all 5 feeds responded in the health check.
 # - *Observation:* `[FILL: e.g. which moods got weak keyword matches?]`
 #
 # **Classification and relevance.**
-# - `[FILL]` distinct categories returned.
-# - `[FILL]%` of recommendations were in a category the reader asked for.
+# - 8 of the 12 categories were returned across the 10 moods.
+# - 64% of recommendations were in a category the reader asked for.
 # - `[FILL]` stories were rejected as not uplifting.
 # - Spot check: `[FILL: 2–3 examples of good and bad picks, e.g. for "my dog died last month"]`.
 #
 # **Latency and cost.**
-# - Average latency per stage: Mood `[FILL]` s, Retrieval `[FILL]` s,
-#   Classifier `[FILL]` s, Writer `[FILL]` s per story, Validator `[FILL]` s.
-# - Average tokens per mood: `[FILL]` in / `[FILL]` out.
-# - Peak GPU memory: `[FILL]` GB, from the Metrics panel or the smoke test.
-# - *Bottleneck:* `[FILL: e.g. the Writer's paraphrase call]`.
+# - Average latency per stage: Mood 2.19 s, Retrieval 0.59 s,
+#   Classifier 15.23 s, Writer 26.67 s per story, Validator 0.01 s.
+# - Average tokens per mood: 11,317 in / 1,284 out.
+# - Peak GPU memory: 10.19 GB in the smoke test, with all three models loaded
+#   (10.18 GB allocated of 14.6 GB).
+# - *Bottleneck:* the Writer per story (26.67 s, with 16 retries over 52 calls)
+#   and the Classifier per search (15.23 s of the roughly 18 s a search takes).
 #
 # **Robustness.**
-# - Intent parse methods: `[FILL: json / regex / default counts]`.
+# - Intent parse methods: 10 json, 0 regex, 0 default.
 # - The one-word mood "meh" produced `[FILL]`.
-# - Copy-check flags: `[FILL]%`. Fact-check warnings: `[FILL]%` of stories.
+# - Copy-check flags: 5.6% (1 of 18 paraphrases). Fact-check warnings: 16.7%
+#   (3 of 18 stories).
 #
 # **Takeaways.** `[FILL: 2–3 sentences: what worked, what didn't, and what you would change first]`
 
@@ -3620,9 +3634,17 @@ else:
 # is HTML-escaped, and links are only rendered for `http(s)` URLs.
 #
 # **Theme:** the app uses the community theme `allenai/gradio-theme` from the
-# Hugging Face Hub (light and dark mode), with Gradio's built-in Soft theme as
-# a fallback if the download fails. The cards take their colors from the
-# theme's CSS variables, so they follow it in both modes.
+# Hugging Face Hub, with Gradio's built-in Soft theme as a fallback if the
+# download fails. The app always uses the theme's **dark mode**: a small
+# script in the page head adds `?__theme=dark` to the address, so the page
+# looks the same whatever the viewer's system setting is. (In light mode the
+# text boxes turned black and hid their text.) The cards take their colors
+# from the theme's CSS variables.
+#
+# **Story cards:** a green **preferred category** tag marks a story whose
+# category is one the Mood agent picked for your mood. Those stories get a
+# ranking bonus, so an 8/10 story with the tag can rank above a 9/10 story
+# without it. The tag does not mean a better mood fit; the bar shows that.
 
 # %%
 from urllib.parse import urlsplit as _urlsplit
@@ -3667,7 +3689,8 @@ def render_cards(recommendations):
         date = (r.get("published") or "")[:10]
         meta = " · ".join(p for p in [esc(r["source"]), esc(date)] if p)
         tags = '<span class="sd-tag">placeholder</span>' if r.get("is_fallback_story") else ""
-        tags += '<span class="sd-tag sd-tag-match">matches your mood</span>' if r.get("category_match") else ""
+        tags += ('<span class="sd-tag sd-tag-match" title="This story\'s category is one that suits your mood; such stories '
+                 'get a ranking bonus">preferred category</span>' if r.get("category_match") else "")
         cards.append(f"""
 <div class="sd-card">
   <div class="sd-card-top"><span class="sd-rank">{r['rank']}</span><span class="sd-badge">{esc(r['category'])}</span>{tags}</div>
@@ -3877,7 +3900,20 @@ except Exception as e:
     print(f"Could not load the Hub theme ({type(e).__name__}); using Gradio's built-in Soft theme.")
     UI_THEME = gr.themes.Soft(primary_hue="pink", neutral_hue="slate", radius_size="lg")
 
+# The page is forced to the theme's dark mode: in the light variant the text boxes turned black and hid their text.
+# ?__theme=dark is Gradio's own switch; the script adds it once, so there is no redirect loop.
+UI_HEAD = """<script>
+(function () {
+  var url = new URL(window.location.href);
+  if (url.searchParams.get("__theme") !== "dark") {
+    url.searchParams.set("__theme", "dark");
+    window.location.replace(url.toString());
+  }
+})();
+</script>"""
+
 UI_CSS = """
+:root { color-scheme: dark; }
 /* width:100% matters: with auto margins alone the container sizes to its content, and the wide metrics
    table then stretches the whole page past a phone's screen. */
 .gradio-container { max-width: 1240px !important; width: 100% !important; margin: 0 auto !important; }
@@ -4160,7 +4196,7 @@ print("• To stop: run  demo.close()  in a new cell, or Runtime → Interrupt e
 print("=" * 72)
 
 launched_demo = demo
-demo.queue(default_concurrency_limit=1).launch(share=True, theme=UI_THEME, css=UI_CSS, show_error=True)
+demo.queue(default_concurrency_limit=1).launch(share=True, theme=UI_THEME, css=UI_CSS, head=UI_HEAD, show_error=True)
 
 # %% [markdown]
 # ## 20. References
@@ -4307,7 +4343,8 @@ demo.queue(default_concurrency_limit=1).launch(share=True, theme=UI_THEME, css=U
 #   - batched and single generation giving identical output
 #   - 7 orchestrator checks, including JSON serializability and the cache hit
 #   - simulated agent crashes
-#   - the Gradio UI in a headless browser: light and dark mode, a 390 px
+#   - the Gradio UI in a headless browser: dark mode (and the forced switch
+#     from light), a 390 px
 #     phone layout, empty input, two tabs, and HTML-escaping of hostile
 #     titles
 # - **Problems found by this testing and fixed:**
@@ -4325,3 +4362,36 @@ demo.queue(default_concurrency_limit=1).launch(share=True, theme=UI_THEME, css=U
 #
 # *My own review and T4 run:* `[FILL: what you personally read, changed and
 # verified; the date and outcome of your Colab T4 "Run all"]`.
+
+# %% [markdown]
+# ## Temporary: collect results for the placeholders
+#
+# **Delete this cell and the one below it before submitting.** They are not
+# part of the app. The code cell prints what is still needed to fill in the
+# placeholders in "Results & Analysis" and in the declaration: the number of
+# stories rejected as not uplifting, and the top picks, summary lengths and
+# validation notes for two example moods. Run it after the evaluation cell
+# (`RUN_EVAL = True`) has finished, then copy its output.
+
+# %%
+# TEMPORARY: delete this cell before submitting.
+if eval_results is None:
+    print("Set RUN_EVAL = True and run the evaluation cell first.")
+else:
+    print("Stories rejected as not uplifting, per mood (from the evaluation):")
+    for m in eval_results["per_mood"]:
+        print(f"  {m['mood'][:40]:<40} {m.get('rejected', 'error')}")
+    print("  total:", sum(m.get("rejected", 0) for m in eval_results["per_mood"]))
+
+    for mood in (EVAL_MOODS[7], EVAL_MOODS[9]):
+        r = orchestrator.recommend(mood)
+        print(f"\n=== {mood!r}: emotion {r['intent']['emotion']}, target categories {r['intent']['target_categories']}")
+        for x in r["recommendations"]:
+            print(f"  #{x['rank']} fit {x['mood_fit_score']}/10 {'[category match] ' if x['category_match'] else ''}"
+                  f"{x['category']} | {x['title'][:70]}\n       {x['reason']}")
+        print("  rejected:", [(x["title"][:45], x["reason"][:70]) for x in r["rejected"]])
+        story = orchestrator.get_story_details(r["recommendations"][0]["story_id"])["story"]
+        print(f"  top story: summary {story['word_count']} words ({story['summary_status']}, attempts "
+              f"{story['summary_attempt_word_counts']}), paraphrase {story['paraphrase_word_count']} words")
+        print("  summary:", story["summary"])
+        print("  notes:", *story["validation_notes"], sep="\n    ")
